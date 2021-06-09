@@ -20,6 +20,7 @@ Globals:
         ENVIRONMENT: !Sub ${ENVIRONMENT}
         PROJECT: !Sub ${PROJECT}
         PUSHOVER_APPKEY: !Sub ${PUSHOVERAPPKEY}
+        PICKUPS_TABLE: !Ref PickupsTable
 
 Resources:
   DynamoStreamLambda:
