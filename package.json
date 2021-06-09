@@ -1,0 +1,28 @@
+{
+  "name": "fev-sophamtning-pushover",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A reminder to put out the garbage cans for pickup",
+  "keywords": [],
+  "license": "MIT",
+  "author": "Joakim Hedlund <contact@joakimhedlund.com>",
+  "repository": "github:Sleavely/fev-sophamtning-pushover",
+  "homepage": "https://github.com/Sleavely/fev-sophamtning-pushover",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "dynamo-plus": "^1.7.0",
+    "pushover-notifications": "^1.2.2"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.924.0",
+    "eslint": "^7.20.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1"
+  }
+}
