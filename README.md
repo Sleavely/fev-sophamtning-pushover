@@ -1,6 +1,6 @@
 # FEV Sophämtning pushnotification
 
-A service for automatically checking when the next [FEV garbage pickup](https://fev.se/atervinning/sophamtning.html) is due and sending a notification through [Pushover](https://pushover.net/) 12 hours prior.
+A service for automatically checking when the next [FEV garbage pickup](https://fev.se/atervinning/sophamtning.html) is due and sending a notification through [Pushover](https://pushover.net/) the day before.
 
 ## Installation & Deployment
 
@@ -20,3 +20,7 @@ Add a record into the new `${PROJECT}-pickups-${ENVIRONMENT}` table:
   pushoverUser: "my user token"
 }
 ```
+
+You should receive a confirmation notification shortly:
+
+![Screenshot of confirmation from Pushover](https://i.imgur.com/YZQqOIa.png)
