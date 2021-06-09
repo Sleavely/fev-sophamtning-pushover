@@ -20,7 +20,3 @@ Add a record into the new `${PROJECT}-pickups-${ENVIRONMENT}` table:
   pushoverUser: "my user token"
 }
 ```
-
-## Cancelling a monitor
-
-Deleting a record will treat it as if it has been scheduled to notify the user. To work around this, set the `ttlUnixSeconds` value to `0` on the record you wish to deactivate, it will cause it to be deleted safely.

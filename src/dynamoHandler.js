@@ -15,7 +15,9 @@ exports.handler = async ({ Records }) => {
   for (const record of Records) {
     // If it was a creation, lets just look up the next pickup and reschedule a notification for that time.
     if (record.eventName === 'INSERT') {
-      const { addressQuery, pushoverUser } = unmarshall(record.dynamodb.NewImage)
+      const image = unmarshall(record.dynamodb.NewImage)
+
+      const { addressQuery, pushoverUser } = image
       console.log(`Entry was inserted for "${addressQuery}". Fetching next pickup..`)
 
       const actualAddress = await getAddressResult(addressQuery)
@@ -56,44 +58,31 @@ exports.handler = async ({ Records }) => {
       continue
     }
 
-    if (record.eventName === 'MODIFY') {
-      const { pushoverUser, addressQuery, ttlUnixSeconds } = unmarshall(record.dynamodb.NewImage)
-      if (ttlUnixSeconds === 0) {
-        await dynamo.delete({
-          TableName: PICKUPS_TABLE,
-          Key: {
-            pushoverUser,
-            addressQuery,
-          },
-        })
-
-        continue
-      }
-    }
-
     // If it was a deletion, we need to check if it was done manually or triggered by the TTL timer.
     // Manual deletions should be respected (i.e. ignored).
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html
-    if (
-      record.eventName === 'REMOVE' &&
-      record.userIdentity.type === 'Service' &&
-      record.userIdentity.principalId === 'dynamodb.amazonaws.com'
-    ) {
-      const { addressQuery, pushoverUser, ttlUnixSeconds } = unmarshall(record.dynamodb.OldImage)
+    if (record.eventName === 'REMOVE') {
+      const image = unmarshall(record.dynamodb.OldImage)
+      if (
+        record.userIdentity &&
+        record.userIdentity.type === 'Service' &&
+        record.userIdentity.principalId === 'dynamodb.amazonaws.com'
+      ) {
+        const { addressQuery, pushoverUser, ttlUnixSeconds } = image
 
-      // Safeguard for manually deleted records
-      if (ttlUnixSeconds === 0) continue
+        const targetDate = new Date((ttlUnixSeconds + parseInt(NOTIFICATION_MARGIN, 10)) * 1000)
 
-      const targetDate = new Date((ttlUnixSeconds + parseInt(NOTIFICATION_MARGIN, 10)) * 1000)
+        // Send a notification and reschedule it with some margin.
+        await sendNotification({
+          user: pushoverUser,
+          message: `Put the trash cans out for your pickup at ${targetDate.toJSON().split('T')[0]}`,
+        })
+        console.log(`Sent notification for "${addressQuery}"`)
 
-      // Send a notification and reschedule it with some margin.
-      await sendNotification({
-        user: pushoverUser,
-        message: `Put the trash cans out for your pickup at ${targetDate.toJSON().split('T')[0]}`,
-      })
-      console.log(`Sent notification for "${addressQuery}"`)
-
-      // Check when the next one is and schedule it.
+        // Check when the next one is and schedule it.
+      } else {
+        console.log('Manually deleted entry', image)
+      }
     }
   }
 }
