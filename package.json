@@ -15,8 +15,7 @@
   "dependencies": {
     "dotenv": "^8.2.0",
     "dynamo-plus": "^1.7.0",
-    "got": "^11.8.2",
-    "pushover-notifications": "^1.2.2"
+    "got": "^11.8.2"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.77",
