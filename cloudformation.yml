@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  PROJECT:
+    Type: String
+  ENVIRONMENT:
+    Type: String
+  PUSHOVERAPPKEY:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: nodejs14.x
+    Timeout: 30
+    Handler: index.handler
+    Tracing: Active
+    Environment:
+      Variables:
+        ENVIRONMENT: !Sub ${ENVIRONMENT}
+        PROJECT: !Sub ${PROJECT}
+        PUSHOVER_APPKEY: !Sub ${PUSHOVERAPPKEY}
+
+Resources:
+  DynamoStreamLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${PROJECT}-${ENVIRONMENT}
+      CodeUri: dist/src/
+      Handler: dynamoHandler.handler
+      Policies:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              Resource: !Join [ "", [ !GetAtt PickupsTable.Arn, "*" ]]
+            - Effect: Allow
+              Action:
+              - dynamodb:DescribeStream
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:ListStreams
+              Resource: !GetAtt PickupsTable.StreamArn
+
+  DynamoStreamLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DynamoStreamLambda}
+      RetentionInDays: 60
+
+  DynamoStreamLambdaStreamSubscription:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 100
+      Enabled: true
+      EventSourceArn: !GetAtt PickupsTable.StreamArn
+      FunctionName: !GetAtt DynamoStreamLambda.Arn
+      StartingPosition: LATEST
+
+
+  # DynamoDB tables
+  PickupsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub ${PROJECT}-pickups-${ENVIRONMENT}
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TimeToLiveSpecification:
+        AttributeName: ttlUnixSeconds
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: pushoverUser
+          AttributeType: S
+        - AttributeName: addressQuery
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pushoverUser
+          KeyType: HASH
+        - AttributeName: addressQuery
+          KeyType: RANGE
