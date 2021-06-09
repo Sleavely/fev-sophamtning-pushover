@@ -15,9 +15,11 @@
   "dependencies": {
     "dotenv": "^8.2.0",
     "dynamo-plus": "^1.7.0",
+    "got": "^11.8.2",
     "pushover-notifications": "^1.2.2"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.77",
     "aws-sdk": "^2.924.0",
     "eslint": "^7.20.0",
     "eslint-config-standard": "^16.0.2",
