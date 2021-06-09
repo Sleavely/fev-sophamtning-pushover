@@ -8,6 +8,9 @@ const dynamo = require('./utils/dynamoClient')
 const { getAddressResult, getNextPickup } = require('./utils/fevClient')
 const { sendNotification } = require('./utils/pushoverClient')
 
+/**
+ * @returns {Date | false}
+ */
 const scheduleNextDate = async ({ addressQuery, pushoverUser }) => {
   const actualAddress = await getAddressResult(addressQuery)
   if (!actualAddress) {
@@ -36,6 +39,8 @@ const scheduleNextDate = async ({ addressQuery, pushoverUser }) => {
     },
   })
   console.log(`Overwritten with TTL ${nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN}`)
+
+  return nextPickupRaw
 }
 
 /**
@@ -50,15 +55,15 @@ exports.handler = async ({ Records }) => {
       const { addressQuery, pushoverUser } = image
       console.log(`Entry was inserted for "${addressQuery}". Fetching next pickup..`)
 
-      const scheduled = await scheduleNextDate({ addressQuery, pushoverUser })
-      if (!scheduled) continue
+      const nextPickupRaw = await scheduleNextDate({ addressQuery, pushoverUser })
+      if (!nextPickupRaw) continue
 
       // send confirmation to user
       await sendNotification({
         user: pushoverUser,
         message: `Subscribing to pickups at "${addressQuery}". Your next pickup is ${nextPickupRaw.toJSON().split('T')[0]}`,
       })
-      console.log(`Sent notification for "${addressQuery}" (${nextPickupRaw.toJSON().split('T')[0]})`)
+      console.log(`Sent initial notification for "${addressQuery}" (${nextPickupRaw.toJSON().split('T')[0]})`)
 
       continue
     }
@@ -85,8 +90,8 @@ exports.handler = async ({ Records }) => {
         console.log(`Sent notification for "${addressQuery}"`)
 
         // Check when the next one is and schedule it.
-        const scheduled = await scheduleNextDate({ addressQuery, pushoverUser })
-        if (!scheduled) continue
+        const nextPickupRaw = await scheduleNextDate({ addressQuery, pushoverUser })
+        if (!nextPickupRaw) continue
       } else {
         console.log('Manually deleted entry', image)
       }
