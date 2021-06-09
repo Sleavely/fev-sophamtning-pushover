@@ -8,6 +8,36 @@ const dynamo = require('./utils/dynamoClient')
 const { getAddressResult, getNextPickup } = require('./utils/fevClient')
 const { sendNotification } = require('./utils/pushoverClient')
 
+const scheduleNextDate = async ({ addressQuery, pushoverUser }) => {
+  const actualAddress = await getAddressResult(addressQuery)
+  if (!actualAddress) {
+    console.error('Could not find a matching address, aborting!')
+
+    return false
+  }
+
+  const { strPickupAddress, strPickupCity } = actualAddress
+  console.log(`Determined address to be "${strPickupAddress}, ${strPickupCity}". Fetching next pickup date.`)
+
+  const nextPickupRaw = await getNextPickup({
+    query: addressQuery,
+    address: strPickupAddress,
+    city: strPickupCity,
+  })
+  console.log(`Next pickup is "${nextPickupRaw.toJSON().split('T')[0]}"`)
+
+  // schedule it by overwriting the record with a fresh ttl
+  await dynamo.put({
+    TableName: PICKUPS_TABLE,
+    Item: {
+      pushoverUser,
+      addressQuery,
+      ttlUnixSeconds: nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN,
+    },
+  })
+  console.log(`Overwritten with TTL ${nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN}`)
+}
+
 /**
  * @type {AWSLambda.DynamoDBStreamHandler}
  */
@@ -20,40 +50,15 @@ exports.handler = async ({ Records }) => {
       const { addressQuery, pushoverUser } = image
       console.log(`Entry was inserted for "${addressQuery}". Fetching next pickup..`)
 
-      const actualAddress = await getAddressResult(addressQuery)
-      if (!actualAddress) {
-        console.error('Could not find a matching address, aborting!')
-
-        continue
-      }
-
-      const { strPickupAddress, strPickupCity } = actualAddress
-      console.log(`Determined address to be "${strPickupAddress}, ${strPickupCity}". Fetching next pickup date.`)
-
-      const nextPickupRaw = await getNextPickup({
-        query: addressQuery,
-        address: strPickupAddress,
-        city: strPickupCity,
-      })
-      console.log(`Next pickup is "${nextPickupRaw.toJSON().split('T')[0]}"`)
-
-      // schedule it by overwriting the same record with a ttl
-      await dynamo.put({
-        TableName: PICKUPS_TABLE,
-        Item: {
-          pushoverUser,
-          addressQuery,
-          ttlUnixSeconds: nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN,
-        },
-      })
-      console.log(`Overwritten with TTL ${nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN}`)
+      const scheduled = await scheduleNextDate({ addressQuery, pushoverUser })
+      if (!scheduled) continue
 
       // send confirmation to user
       await sendNotification({
         user: pushoverUser,
-        message: `Subscribing to pickups at ${strPickupAddress}. Your next pickup is ${nextPickupRaw.toJSON().split('T')[0]}`,
+        message: `Subscribing to pickups at "${addressQuery}". Your next pickup is ${nextPickupRaw.toJSON().split('T')[0]}`,
       })
-      console.log(`Sent notification for "${strPickupAddress}" (${nextPickupRaw.toJSON().split('T')[0]})`)
+      console.log(`Sent notification for "${addressQuery}" (${nextPickupRaw.toJSON().split('T')[0]})`)
 
       continue
     }
@@ -80,6 +85,8 @@ exports.handler = async ({ Records }) => {
         console.log(`Sent notification for "${addressQuery}"`)
 
         // Check when the next one is and schedule it.
+        const scheduled = await scheduleNextDate({ addressQuery, pushoverUser })
+        if (!scheduled) continue
       } else {
         console.log('Manually deleted entry', image)
       }
