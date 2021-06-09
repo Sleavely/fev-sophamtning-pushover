@@ -56,6 +56,21 @@ exports.handler = async ({ Records }) => {
       continue
     }
 
+    if (record.eventName === 'MODIFY') {
+      const { pushoverUser, addressQuery, ttlUnixSeconds } = unmarshall(record.dynamodb.NewImage)
+      if (ttlUnixSeconds === 0) {
+        await dynamo.delete({
+          TableName: PICKUPS_TABLE,
+          Key: {
+            pushoverUser,
+            addressQuery,
+          },
+        })
+
+        continue
+      }
+    }
+
     // If it was a deletion, we need to check if it was done manually or triggered by the TTL timer.
     // Manual deletions should be respected (i.e. ignored).
     // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/time-to-live-ttl-streams.html
@@ -65,6 +80,9 @@ exports.handler = async ({ Records }) => {
       record.userIdentity.principalId === 'dynamodb.amazonaws.com'
     ) {
       const { addressQuery, pushoverUser, ttlUnixSeconds } = unmarshall(record.dynamodb.OldImage)
+
+      // Safeguard for manually deleted records
+      if (ttlUnixSeconds === 0) continue
 
       const targetDate = new Date((ttlUnixSeconds + parseInt(NOTIFICATION_MARGIN, 10)) * 1000)
 
