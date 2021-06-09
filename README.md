@@ -11,3 +11,12 @@ Search-replace `irish-luck` in `MakeFile` with the name of your S3 bucket.
 ```bash
 make deploy
 ```
+
+Add a record into the new `${PROJECT}-pickups-${ENVIRONMENT}` table:
+
+```js
+{
+  addressQuery: "lumsheden 75", // A query that will only return a single result
+  pushoverUser: "my user token"
+}
+```
