@@ -55,7 +55,13 @@ exports.handler = async ({ Records }) => {
     if (record.eventName === 'INSERT') {
       const image = unmarshall(record.dynamodb.NewImage)
 
-      const { addressQuery, pushoverUser } = image
+      const { addressQuery, pushoverUser, ttlUnixSeconds } = image
+
+      // When its being rescheduled its actually being recreated, so we
+      // differentiate between manually inserted by looking for TTL.
+      // No TTL means it was manually inserted and should be initialized.
+      if (ttlUnixSeconds) continue
+
       console.log(`Entry was inserted for "${addressQuery}". Fetching next pickup..`)
 
       const nextPickupRaw = await scheduleNextDate(image)
