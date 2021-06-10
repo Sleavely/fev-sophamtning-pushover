@@ -13,9 +13,7 @@ const NOTIFICATION_MARGIN = ONE_DAY / 4
 /**
  * @returns {Date | false}
  */
-const scheduleNextDate = async (image) => {
-  const { addressQuery } = image
-
+const getNextDate = async (addressQuery) => {
   const actualAddress = await getAddressResult(addressQuery)
   if (!actualAddress) {
     console.error('Could not find a matching address, aborting!')
@@ -32,6 +30,22 @@ const scheduleNextDate = async (image) => {
     city: strPickupCity,
   })
   console.log(`Next pickup is "${nextPickupRaw.toJSON().split('T')[0]}"`)
+
+  return nextPickupRaw
+}
+
+/**
+ * @returns {Date | false}
+ */
+const scheduleNextDate = async (image) => {
+  const { addressQuery } = image
+
+  const nextPickupRaw = await getNextDate(addressQuery)
+  if (!nextPickupRaw) {
+    console.error('Unable to find next date. Nothing to schedule.')
+
+    return false
+  }
 
   // schedule it by overwriting the record with a fresh ttl
   await dynamo.put({
@@ -100,9 +114,12 @@ exports.handler = async ({ Records }) => {
         const targetDate = new Date((ttlUnixSeconds + NOTIFICATION_MARGIN) * 1000)
 
         // Send a notification and reschedule it with some margin.
+        // Lets not trust the TTL for the communicated targetDate;
+        // this is primarily a fix for when the TTL has been tampered with.
+        const actualTargetDate = await getNextDate(addressQuery)
         await sendNotification({
           user: pushoverUser,
-          message: `Put the trash cans out for your pickup at ${targetDate.toJSON().split('T')[0]}`,
+          message: `Put the trash cans out for your pickup at ${actualTargetDate.toJSON().split('T')[0]}`,
         })
         console.log(`Sent notification for "${addressQuery}"`)
 
