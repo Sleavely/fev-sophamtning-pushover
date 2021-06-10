@@ -84,6 +84,7 @@ exports.handler = async ({ Records }) => {
         const { addressQuery, pushoverUser, ttlUnixSeconds, isReschedule } = image
 
         if (isReschedule) {
+          console.log(`"${addressQuery}" was picked up yesterday. Scheduling next reminder date.`)
           // Just check when the next one is and schedule it.
           delete image.isReschedule
           await scheduleNextDate(image)
@@ -101,14 +102,16 @@ exports.handler = async ({ Records }) => {
 
         // Now we cant check right away when the next pickup is because that'll be the date
         // we just sent a notification for, so lets reschedule this for the day after pickup.
+        const rescheduledTtl = targetDate.valueOf() / 1000 + ONE_DAY + NOTIFICATION_MARGIN
         await dynamo.put({
           TableName: PICKUPS_TABLE,
           Item: {
             ...image,
             isReschedule: true,
-            ttlUnixSeconds: targetDate.valueOf() / 1000 + ONE_DAY + NOTIFICATION_MARGIN,
+            ttlUnixSeconds: rescheduledTtl,
           },
         })
+        console.log(`Rescheduled next reminder lookup for the day after pickup (TTL ${rescheduledTtl})`)
       } else {
         console.log('Manually deleted entry', image)
       }
