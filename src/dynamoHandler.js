@@ -11,7 +11,9 @@ const { sendNotification } = require('./utils/pushoverClient')
 /**
  * @returns {Date | false}
  */
-const scheduleNextDate = async ({ addressQuery, pushoverUser }) => {
+const scheduleNextDate = async (image) => {
+  const { addressQuery } = image
+
   const actualAddress = await getAddressResult(addressQuery)
   if (!actualAddress) {
     console.error('Could not find a matching address, aborting!')
@@ -33,8 +35,7 @@ const scheduleNextDate = async ({ addressQuery, pushoverUser }) => {
   await dynamo.put({
     TableName: PICKUPS_TABLE,
     Item: {
-      pushoverUser,
-      addressQuery,
+      ...image,
       ttlUnixSeconds: nextPickupRaw.valueOf() / 1000 - NOTIFICATION_MARGIN,
     },
   })
@@ -55,7 +56,7 @@ exports.handler = async ({ Records }) => {
       const { addressQuery, pushoverUser } = image
       console.log(`Entry was inserted for "${addressQuery}". Fetching next pickup..`)
 
-      const nextPickupRaw = await scheduleNextDate({ addressQuery, pushoverUser })
+      const nextPickupRaw = await scheduleNextDate(image)
       if (!nextPickupRaw) continue
 
       // send confirmation to user
@@ -90,7 +91,7 @@ exports.handler = async ({ Records }) => {
         console.log(`Sent notification for "${addressQuery}"`)
 
         // Check when the next one is and schedule it.
-        const nextPickupRaw = await scheduleNextDate({ addressQuery, pushoverUser })
+        const nextPickupRaw = await scheduleNextDate(image)
         if (!nextPickupRaw) continue
       } else {
         console.log('Manually deleted entry', image)
