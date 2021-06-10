@@ -1,5 +1,4 @@
 const {
-  NOTIFICATION_MARGIN = '21600', // 6 hours in seconds
   PICKUPS_TABLE = '',
 } = process.env
 
@@ -7,6 +6,9 @@ const { Converter: { unmarshall } } = require('aws-sdk/clients/dynamodb')
 const dynamo = require('./utils/dynamoClient')
 const { getAddressResult, getNextPickup } = require('./utils/fevClient')
 const { sendNotification } = require('./utils/pushoverClient')
+
+const ONE_DAY = 86400 // 24h in seconds
+const NOTIFICATION_MARGIN = ONE_DAY / 4
 
 /**
  * @returns {Date | false}
@@ -79,9 +81,16 @@ exports.handler = async ({ Records }) => {
         record.userIdentity.type === 'Service' &&
         record.userIdentity.principalId === 'dynamodb.amazonaws.com'
       ) {
-        const { addressQuery, pushoverUser, ttlUnixSeconds } = image
+        const { addressQuery, pushoverUser, ttlUnixSeconds, isReschedule } = image
 
-        const targetDate = new Date((ttlUnixSeconds + parseInt(NOTIFICATION_MARGIN, 10)) * 1000)
+        if (isReschedule) {
+          // Just check when the next one is and schedule it.
+          delete image.isReschedule
+          await scheduleNextDate(image)
+          continue
+        }
+
+        const targetDate = new Date((ttlUnixSeconds + NOTIFICATION_MARGIN) * 1000)
 
         // Send a notification and reschedule it with some margin.
         await sendNotification({
@@ -90,9 +99,16 @@ exports.handler = async ({ Records }) => {
         })
         console.log(`Sent notification for "${addressQuery}"`)
 
-        // Check when the next one is and schedule it.
-        const nextPickupRaw = await scheduleNextDate(image)
-        if (!nextPickupRaw) continue
+        // Now we cant check right away when the next pickup is because that'll be the date
+        // we just sent a notification for, so lets reschedule this for the day after pickup.
+        await dynamo.put({
+          TableName: PICKUPS_TABLE,
+          Item: {
+            ...image,
+            isReschedule: true,
+            ttlUnixSeconds: targetDate.valueOf() / 1000 + ONE_DAY + NOTIFICATION_MARGIN,
+          },
+        })
       } else {
         console.log('Manually deleted entry', image)
       }
