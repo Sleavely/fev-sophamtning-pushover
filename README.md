@@ -24,3 +24,7 @@ Add a record into the new `${PROJECT}-pickups-${ENVIRONMENT}` table:
 You should receive a confirmation notification shortly:
 
 ![Screenshot of confirmation from Pushover](https://i.imgur.com/YZQqOIa.png)
+
+## Architecture
+
+![](./architecture.png)
