@@ -75,6 +75,6 @@ exports.parseSwedishDate = (inputStr, currentDate = new Date()) => {
   // Cant use static because it might be next year
   const targetYear = currentDate.getFullYear() + (targetMonth < currentDate.getMonth() ? 1 : 0)
 
-  const targetDate = new Date(`${targetYear}-${targetMonthPadded}-${inputDay}T00:00:00Z`)
+  const targetDate = new Date(`${targetYear}-${targetMonthPadded}-${inputDay.padStart(2, '0')}T00:00:00Z`)
   return targetDate
 }
