@@ -1,10 +1,29 @@
+import got from 'got'
+
 const {
   PUSHOVER_APPKEY = '',
 } = process.env
 
-const got = require('got')
+interface PushoverNotification {
+  token: string
+  user: string
+  message: string
 
-exports.sendNotification = async (msg) => {
+  /**
+   * your message's title, otherwise your app's name is used
+   */
+  title?: string
+  /**
+   * a supplementary URL to show with your message
+   */
+  url?: string
+  /**
+   * a title for the 'url' parameter, otherwise just the URL is shown
+   */
+  url_title?: string
+}
+
+export const sendNotification = async (msg: Omit<PushoverNotification, 'token'>): Promise<void> => {
   const targetUrl = 'https://api.pushover.net/1/messages.json'
   await got.post(targetUrl, {
     responseType: 'json',
