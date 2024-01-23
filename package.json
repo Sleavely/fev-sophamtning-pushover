@@ -10,6 +10,7 @@
   "homepage": "https://github.com/Sleavely/fev-sophamtning-pushover",
   "main": "index.js",
   "scripts": {
+    "lint": "eslint . && tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
